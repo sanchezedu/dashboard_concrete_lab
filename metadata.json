@@ -1,0 +1,5 @@
+{
+  "name": "ConcreteLab Analytics",
+  "description": "A Power BI-style dashboard for analyzing concrete laboratory data, featuring executive summaries, design analysis, and quality control metrics.",
+  "requestFramePermissions": []
+}
