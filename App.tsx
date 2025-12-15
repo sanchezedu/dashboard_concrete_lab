@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { processExcelFile } from './services/excelService';
+import { saveSamples, loadSamples, clearSamples } from './services/storageService';
 import { Dashboard } from './components/Dashboard';
 import { Upload, FileSpreadsheet, Loader2, AlertCircle } from 'lucide-react';
 import { ConcreteSample } from './types';
@@ -7,7 +8,25 @@ import { ConcreteSample } from './types';
 const App: React.FC = () => {
   const [data, setData] = useState<ConcreteSample[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Load persisted data on mount
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        const storedData = await loadSamples();
+        if (storedData && storedData.length > 0) {
+          setData(storedData);
+        }
+      } catch (e) {
+        console.error("Failed to load stored data", e);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    initData();
+  }, []);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -21,6 +40,8 @@ const App: React.FC = () => {
       if (processedData.length === 0) {
         setError("No se encontraron datos válidos en el archivo. Verifique el formato.");
       } else {
+        // Save to persistent storage immediately
+        await saveSamples(processedData);
         setData(processedData);
       }
     } catch (err) {
@@ -31,8 +52,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handleReset = async () => {
+    // Clear state and persistent storage
+    await clearSamples();
+    setData([]);
+  };
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Cargando base de datos...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (data.length > 0) {
-    return <Dashboard data={data} onReset={() => setData([])} />;
+    return <Dashboard data={data} onReset={handleReset} />;
   }
 
   return (
@@ -50,7 +88,8 @@ const App: React.FC = () => {
           <div className="mb-6 text-center">
             <h2 className="text-xl font-semibold text-slate-800 mb-2">Cargar Base de Datos</h2>
             <p className="text-slate-500 text-sm">
-              Sube el archivo "Base_Datos_Laboratorio_2025.xlsx" para generar el dashboard automáticamente.
+              Sube el archivo "Base_Datos_Laboratorio_2025.xlsx". <br/>
+              <span className="font-semibold text-blue-600">El archivo se guardará automáticamente en este navegador.</span>
             </p>
           </div>
 
@@ -60,7 +99,7 @@ const App: React.FC = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-10 h-10 mb-3 text-blue-500 animate-spin" />
-                    <p className="text-sm text-slate-600">Procesando hojas y normalizando datos...</p>
+                    <p className="text-sm text-slate-600">Procesando y guardando datos...</p>
                   </>
                 ) : (
                   <>
